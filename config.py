@@ -23,10 +23,17 @@ AVAILABLE_LANGUAGES = {
 
 
 def get_data_dir() -> Path:
-    """Windows 用 %LOCALAPPDATA%/WhisperTray，其它平台用 ~/.whisper-tray。"""
-    if platform.system() == "Windows":
+    """平台数据目录：
+    - Windows: %LOCALAPPDATA%/WhisperTray
+    - macOS: ~/Library/Application Support/WhisperTray
+    - 其它: ~/.whisper-tray
+    """
+    system = platform.system()
+    if system == "Windows":
         base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
         path = Path(base) / APP_NAME
+    elif system == "Darwin":
+        path = Path.home() / "Library" / "Application Support" / APP_NAME
     else:
         path = Path.home() / ".whisper-tray"
     path.mkdir(parents=True, exist_ok=True)

@@ -55,13 +55,77 @@ COLOR_DONE = (50, 180, 80, 255)         # 绿
 COLOR_ERROR = (180, 40, 40, 255)
 
 
-def make_icon(color: tuple[int, int, int, int], size: int = 64) -> Image.Image:
-    """程序化生成圆形托盘图标。"""
+def make_icon(
+    color: tuple[int, int, int, int],
+    size: int = 64,
+    style: str = "filled",
+) -> Image.Image:
+    """程序化生成托盘图标。
+
+    macOS 菜单栏会对图标做 template 渲染（彩色常变成一团黑），
+    因此 Darwin 上改用黑+透明的形状区分状态；其它平台用彩色圆点。
+    """
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     margin = max(2, size // 16)
-    draw.ellipse([margin, margin, size - margin - 1, size - margin - 1], fill=color)
-    # 内圈高光
+    box = [margin, margin, size - margin - 1, size - margin - 1]
+
+    if platform.system() == "Darwin":
+        # Template-friendly: black ink + alpha shapes
+        ink = (0, 0, 0, 255)
+        clear = (0, 0, 0, 0)
+        if style == "ring":
+            draw.ellipse(box, outline=ink, width=max(3, size // 10))
+        elif style == "recording":
+            draw.ellipse(box, fill=ink)
+            hole = size // 3
+            draw.ellipse(
+                [hole, hole, size - hole - 1, size - hole - 1],
+                fill=clear,
+            )
+            # 中心小圆表示「录」
+            c = size // 2
+            r = max(3, size // 10)
+            draw.ellipse([c - r, c - r, c + r, c + r], fill=ink)
+        elif style == "busy":
+            # 三点 / 横条暗示忙碌
+            cy = size // 2
+            r = max(3, size // 12)
+            for cx in (size // 4, size // 2, 3 * size // 4):
+                draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=ink)
+        elif style == "done":
+            draw.ellipse(box, outline=ink, width=max(3, size // 12))
+            # 简易对勾
+            w = max(3, size // 12)
+            draw.line(
+                [
+                    (size * 0.28, size * 0.52),
+                    (size * 0.45, size * 0.70),
+                    (size * 0.72, size * 0.32),
+                ],
+                fill=ink,
+                width=w,
+                joint="curve",
+            )
+        elif style == "error":
+            draw.ellipse(box, outline=ink, width=max(3, size // 12))
+            w = max(3, size // 12)
+            draw.line(
+                [(size * 0.32, size * 0.32), (size * 0.68, size * 0.68)],
+                fill=ink,
+                width=w,
+            )
+            draw.line(
+                [(size * 0.68, size * 0.32), (size * 0.32, size * 0.68)],
+                fill=ink,
+                width=w,
+            )
+        else:  # filled
+            draw.ellipse(box, fill=ink)
+        return img
+
+    # Windows / Linux: colored disc + highlight
+    draw.ellipse(box, fill=color)
     inner = size // 4
     highlight = (
         min(255, color[0] + 40),
@@ -79,26 +143,43 @@ def make_icon(color: tuple[int, int, int, int], size: int = 64) -> Image.Image:
 def _beep() -> None:
     """简短提示音。"""
     try:
-        if platform.system() == "Windows":
+        system = platform.system()
+        if system == "Windows":
             import winsound
 
             winsound.MessageBeep(winsound.MB_OK)
+        elif system == "Darwin":
+            # 系统提示音；afplay 比终端 \a 更可靠（无 TTY 时）
+            sound = "/System/Library/Sounds/Tink.aiff"
+            try:
+                subprocess.Popen(
+                    ["afplay", sound],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except Exception:
+                subprocess.Popen(
+                    ["osascript", "-e", "beep"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
         else:
-            # Linux 终端响铃
-            sys.stdout.write("\a")
-            sys.stdout.flush()
+            if sys.stdout is not None:
+                sys.stdout.write("\a")
+                sys.stdout.flush()
     except Exception:
         pass
 
 
 def _notify(title: str, message: str) -> None:
-    """桌面通知（plyer 可选）。"""
+    """桌面通知（plyer 可选；macOS 回退 osascript）。"""
+    msg = (message or "")[:200]
     try:
         from plyer import notification
 
         notification.notify(
             title=title,
-            message=message[:200],
+            message=msg,
             app_name="WhisperTray",
             timeout=3,
         )
@@ -106,7 +187,24 @@ def _notify(title: str, message: str) -> None:
     except Exception as e:
         logger.debug("plyer 通知不可用: %s", e)
 
-    # Windows 托盘 balloon 由 pystray 的 notify 承担（若支持）
+    if platform.system() == "Darwin":
+        try:
+            # 转义 AppleScript 字符串
+            def _esc(s: str) -> str:
+                return s.replace("\\", "\\\\").replace('"', '\\"')
+
+            script = (
+                f'display notification "{_esc(msg)}" with title "{_esc(title)}"'
+            )
+            subprocess.Popen(
+                ["osascript", "-e", script],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            return
+        except Exception as e:
+            logger.debug("osascript 通知失败: %s", e)
+
     logger.info("通知: %s — %s", title, message)
 
 
@@ -137,12 +235,12 @@ class TrayApp:
         self.transcriber.set_progress_callback(lambda m: logger.info("[ASR] %s", m))
 
         self._icons = {
-            AppState.LOADING: make_icon(COLOR_BUSY),
-            AppState.IDLE: make_icon(COLOR_IDLE),
-            AppState.RECORDING: make_icon(COLOR_RECORDING),
-            AppState.TRANSCRIBING: make_icon(COLOR_BUSY),
-            AppState.DONE: make_icon(COLOR_DONE),
-            AppState.ERROR: make_icon(COLOR_ERROR),
+            AppState.LOADING: make_icon(COLOR_BUSY, style="busy"),
+            AppState.IDLE: make_icon(COLOR_IDLE, style="ring"),
+            AppState.RECORDING: make_icon(COLOR_RECORDING, style="recording"),
+            AppState.TRANSCRIBING: make_icon(COLOR_BUSY, style="busy"),
+            AppState.DONE: make_icon(COLOR_DONE, style="done"),
+            AppState.ERROR: make_icon(COLOR_ERROR, style="error"),
         }
         self._last_transcript = ""
         self._last_transcript_path = get_data_dir() / "last_transcript.txt"

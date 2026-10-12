@@ -1,0 +1,60 @@
+name: Build macOS
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    # macos-14 = Apple Silicon runner (arm64). For Intel artifact, add a
+    # macos-13 matrix entry; unsigned .app either way.
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install PortAudio
+        run: brew install portaudio
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller whisper_tray_macos.spec
+
+      - name: Upload artifact (.app)
+        uses: actions/upload-artifact@v4
+        with:
+          name: WhisperTray-macos
+          path: dist/WhisperTray.app
+          if-no-files-found: error
+
+      - name: Zip .app for release
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          cd dist
+          ditto -c -k --sequesterRsrc --keepParent WhisperTray.app ../WhisperTray-macos.zip
+          ls -lh ../WhisperTray-macos.zip
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: WhisperTray-macos.zip
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

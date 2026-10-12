@@ -43,11 +43,25 @@ def _setup_logging() -> Path:
 def _check_deps() -> list[str]:
     """返回缺失/不可用依赖的提示列表。"""
     missing: list[str] = []
+    import platform as _platform
+
+    if _platform.system() == "Darwin":
+        sd_tip = (
+            "pip install sounddevice；若失败请先: brew install portaudio"
+        )
+    elif _platform.system() == "Windows":
+        sd_tip = "pip install sounddevice（Windows 轮子一般自带 PortAudio）"
+    else:
+        sd_tip = (
+            "pip install sounddevice；系统需 PortAudio "
+            "（如 apt install libportaudio2 / dnf install portaudio）"
+        )
+
     checks = (
         ("numpy", "pip install numpy"),
         ("PIL", "pip install Pillow"),
         ("pystray", "pip install pystray"),
-        ("sounddevice", "pip install sounddevice（Windows 一般自带 PortAudio）"),
+        ("sounddevice", sd_tip),
         ("faster_whisper", "pip install faster-whisper"),
     )
     for mod, tip in checks:

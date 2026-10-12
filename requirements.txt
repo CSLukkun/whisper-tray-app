@@ -1,5 +1,9 @@
-# WhisperTray — Windows 桌面托盘语音识别
-# Python 3.11+ 推荐
+# WhisperTray — 桌面托盘语音识别（Windows / macOS）
+# Python 3.11+ 推荐（3.12 亦可）
+#
+# macOS 额外系统依赖:
+#   brew install portaudio
+#   （sounddevice 需要 PortAudio；Apple Silicon 与 Intel 均适用）
 
 faster-whisper>=1.0.0
 sounddevice>=0.4.6
@@ -8,8 +12,8 @@ Pillow>=10.0.0
 pystray>=0.19.5
 pyperclip>=1.8.2
 
-# 可选：桌面通知
+# 可选：桌面通知（macOS 无 plyer 时会回退 osascript）
 plyer>=2.1.0
 
-# 打包（可选，仅在制作 exe 时需要）
+# 打包（可选，仅在制作 exe / .app 时需要；请在对应平台本机执行）
 # pyinstaller>=6.0.0

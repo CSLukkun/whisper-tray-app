@@ -96,7 +96,8 @@ class Recorder:
             self._stream = None
             msg = (
                 f"无法打开麦克风: {e}。"
-                "请检查麦克风权限与默认录音设备。"
+                "请检查麦克风权限与默认录音设备"
+                "（macOS: 系统设置 → 隐私与安全性 → 麦克风）。"
             )
             self._emit_error(msg)
             return False

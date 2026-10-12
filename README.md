@@ -1,30 +1,79 @@
 # WhisperTray — 本地语音识别托盘工具
 
-**版本：0.1.0**（见 `VERSION`）
+**版本：0.1.1**（见 `VERSION`）
 
-在 Windows 系统托盘常驻：点击开始/停止录音，本地 Whisper 转写后自动复制到剪贴板。适合日常「说一句 → 粘贴」场景。
+在系统托盘 / 菜单栏常驻：点击开始/停止录音，本地 Whisper 转写后自动复制到剪贴板。适合日常「说一句 → 粘贴」场景。
+
+支持 **Windows** 与 **macOS**（Apple Silicon / Intel）。
 
 ## 功能
 
-- 系统托盘图标：左键切换录音；右键菜单完整操作
+- 系统托盘 / 菜单栏图标：点击切换录音；右键（macOS 可 Control+点击）菜单完整操作
 - 本地 `faster-whisper` 识别（模型启动时加载并保持热态）
 - 转写结果自动复制到剪贴板
 - 可选桌面通知 / 提示音
 - 中文友好默认（模型 `small`，语言 `zh`）
-- 配置与录音保存在 `%LOCALAPPDATA%\WhisperTray\`
+- 配置与录音保存在本机用户目录（见下方「数据与配置目录」）
 
 ## 环境要求
 
-- **Windows 10/11**（主要目标平台）
-- **Python 3.11+**（推荐 3.11 / 3.12）
-- 麦克风权限
-- （可选）NVIDIA GPU + CUDA：加速识别；无 GPU 时自动用 CPU + int8
-- （可选）[Microsoft Visual C++ Redistributable](https://learn.microsoft.com/zh-cn/cpp/windows/latest-supported-vc-redist) — 部分原生依赖需要
-- **一般不需要 ffmpeg**：本工具录制并转写 WAV，`faster-whisper` 直接读 WAV 即可
+| 平台 | 要求 |
+|------|------|
+| **Windows 10/11** | Python 3.11+；麦克风权限；（可选）VC++ Redistributable、CUDA |
+| **macOS 12+** | Python 3.11+（Apple Silicon 或 Intel）；**PortAudio**（`brew install portaudio`）；麦克风权限 |
+| 通用 | （可选）NVIDIA GPU + CUDA 加速；无 GPU 时自动 CPU + int8。macOS 上一般为 CPU。 |
+| ffmpeg | **一般不需要**：本工具录制并转写 WAV，`faster-whisper` 直接读 WAV 即可 |
 
 ## 快速开始
 
-### 方式一：一键脚本（推荐）
+### macOS（推荐：`./run.sh`）
+
+```bash
+# 0) 若尚未安装 Homebrew / Python / PortAudio：
+#    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+brew install python@3.12 portaudio
+
+# 1) 克隆并启动
+git clone https://github.com/CSLukkun/whisper-tray-app.git
+cd whisper-tray-app
+chmod +x run.sh
+./run.sh
+```
+
+`run.sh` 会：创建 `.venv` → `pip install -r requirements.txt` → 启动 `main.py`。
+
+**手动步骤（等价）：**
+
+```bash
+cd /path/to/whisper-tray-app
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python main.py
+```
+
+首次启动会下载 Whisper 模型（默认 `small`，约 **244–500MB**）。菜单栏图标出现后，标题显示「加载中…」，完成后变为「空闲 / 点击录音」。
+
+#### macOS 麦克风权限（必做）
+
+1. 打开 **系统设置 → 隐私与安全性 → 麦克风**
+2. 允许运行本程序的宿主访问麦克风：
+   - 用 `./run.sh` / 终端启动 → 勾选 **终端**（Terminal）或 **iTerm** 等
+   - 用 VS Code / Cursor 集成终端启动 → 勾选对应编辑器
+   - 若使用打包的 `WhisperTray.app` → 勾选 **WhisperTray**
+3. 若列表中没有对应项：先点一次托盘「开始录音」，系统应弹出授权对话框；若仍无声音，检查输入设备是否为当前麦克风且未静音
+4. 改权限后需**完全退出并重启** WhisperTray（菜单栏图标 → 退出）后再试
+
+#### macOS 菜单栏使用提示
+
+- 图标在屏幕**右上角**菜单栏（不是 Dock）
+- 左键：开始/停止录音（默认菜单项）
+- 右键或 **Control+点击**：打开完整菜单（模型、语言、打开日志等）
+- macOS 会对菜单栏图标做 template 渲染，本应用用**形状**区分状态（圆环=空闲、录制样式=录音中、三点=忙碌、对勾=完成）
+
+### Windows
+
+#### 方式一：一键脚本（推荐）
 
 双击 `run.bat`。脚本会：
 
@@ -32,7 +81,7 @@
 2. `pip install -r requirements.txt`  
 3. 启动 `main.py`
 
-### 方式二：手动
+#### 方式二：手动
 
 ```bat
 cd /d 路径\whisper-tray-app
@@ -42,14 +91,12 @@ pip install -r requirements.txt
 python main.py
 ```
 
-首次启动会下载 Whisper 模型（默认 `small`，约 **244–500MB** 量级，视缓存与量化而定）。托盘标题显示「加载中…」，完成后变为「空闲 / 点击录音」。
-
 ## 使用说明
 
 | 操作 | 说明 |
 |------|------|
-| 左键点击托盘图标 | 开始录音 ↔ 停止并识别 |
-| 录音中 | 图标变红，标题「录音中…」 |
+| 点击托盘 / 菜单栏图标 | 开始录音 ↔ 停止并识别 |
+| 录音中 | 图标变为录音样式，标题「录音中…」 |
 | 停止后 | 标题「识别中…」→ 复制剪贴板 →「已复制」 |
 | 右键 → 选择模型 | tiny / base / small / medium |
 | 右键 → 选择语言 | 自动检测 / 中文 / 英语 |
@@ -65,21 +112,24 @@ python main.py
 | **small** | 中 | 中 | **较好** | **默认推荐** |
 | medium | 较大 | 较慢 | 更好 | 高配 / 追求准确 |
 
-设备策略：有 CUDA 用 `float16`，否则 CPU `int8`。
+设备策略：有 CUDA 用 `float16`，否则 CPU `int8`（含 Apple Silicon）。
 
 ## 数据与配置目录
 
-Windows：
+| 平台 | 路径 |
+|------|------|
+| Windows | `%LOCALAPPDATA%\WhisperTray\` |
+| macOS | `~/Library/Application Support/WhisperTray/` |
+| Linux / 其它 | `~/.whisper-tray/` |
+
+目录内容：
 
 ```
-%LOCALAPPDATA%\WhisperTray\
-  config.json          # 模型、语言等
-  recordings\          # 录音 WAV
-  logs\                # 日志
-  last_transcript.txt  # 最近一次转写结果
+config.json          # 模型、语言等
+recordings/          # 录音 WAV
+logs/                # 日志
+last_transcript.txt  # 最近一次转写结果
 ```
-
-非 Windows（便于开发测试）：`~/.whisper-tray/`
 
 `config.json` 示例：
 
@@ -100,130 +150,107 @@ Windows：
 
 `hotkey` 字段预留，后续可扩展全局热键。
 
-## 开机自启（Windows）
+## 开机自启
+
+### Windows
 
 1. `Win + R` → 输入 `shell:startup` → 回车  
-2. 在启动文件夹中新建 `WhisperTray` 的快捷方式，目标指向：
+2. 在启动文件夹中新建快捷方式，指向 `run.bat` 或打包后的 `WhisperTray.exe`  
+3. 也可在「任务管理器 → 启动应用」中管理
 
-   ```
-   D:\path\to\whisper-tray-app\run.bat
-   ```
+### macOS
 
-   若使用打包版，快捷方式直接指向：
+1. **系统设置 → 通用 → 登录项** →「打开时打开」→ 添加  
+   - 源码方式：可添加一个「自动化」或使用登录时运行脚本；简便做法是把 `run.sh` 包进「应用程序」里的 Automator / 快捷指令，或直接添加打包好的 `WhisperTray.app`  
+2. 推荐：在 Mac 上执行 `./build_macos.sh` 得到 `WhisperTray.app` 后，将该 `.app` 加入登录项
 
-   ```
-   D:\path\to\WhisperTray\WhisperTray.exe
-   ```
+## 免 Python 的可执行包
 
-   或（源码 + venv）直接指向：
+### Windows：从 Releases 下载
 
-   ```
-   D:\path\to\whisper-tray-app\.venv\Scripts\pythonw.exe
-   ```
+1. 打开仓库 **Releases**  
+2. 下载 `WhisperTray-windows.zip`  
+3. 解压后运行 `WhisperTray\WhisperTray.exe`  
+4. 首次仍会下载 Whisper 模型；日志在 `%LOCALAPPDATA%\WhisperTray\logs\`
 
-   参数：`D:\path\to\whisper-tray-app\main.py`  
-   （`pythonw.exe` 无控制台窗口，更适合托盘常驻）
+本机打包：双击或运行 `build_windows.bat`（须在 **Windows** 上）。
 
-3. 也可在「任务管理器 → 启动应用」中管理启用/禁用
+### macOS：本机打包 `.app`
 
-## 免 Python 的 .exe
+**无法在 Linux 上交叉编译出可用的 macOS .app**（需 Cocoa / 本机链接）。请在 Mac 上：
 
-无需安装 Python 即可使用：从 GitHub Releases 下载预编译包，或在本机用脚本打包。
-
-### 从 Releases 下载（推荐给最终用户）
-
-1. 打开仓库的 **Releases** 页面  
-2. 下载最新的 `WhisperTray-windows.zip`（由 CI 在打标签时自动上传）  
-3. 解压到任意目录，运行 `WhisperTray\WhisperTray.exe`  
-4. 首次运行仍会下载 Whisper 模型到 Hugging Face 缓存（与源码方式相同）  
-5. 日志：`%LOCALAPPDATA%\WhisperTray\logs\`（窗口模式无控制台，请看文件日志）  
-6. 若提示缺少 DLL，安装 [VC++ Redistributable](https://learn.microsoft.com/zh-cn/cpp/windows/latest-supported-vc-redist)
-
-也可在 Actions 产物中下载 artifact `WhisperTray-windows`（`workflow_dispatch` 或打 tag 触发构建后）。
-
-### 本机打包：`build_windows.bat`
-
-在 **Windows** 上双击或在 cmd 中运行：
-
-```bat
-cd /d 路径\whisper-tray-app
-build_windows.bat
+```bash
+cd /path/to/whisper-tray-app
+chmod +x build_macos.sh
+./build_macos.sh
 ```
 
-脚本会：创建 `.venv`（若不存在）→ 安装 `requirements.txt` + `pyinstaller` → 执行 `pyinstaller whisper_tray.spec`。
-
-完成后输出：
+输出：
 
 ```
-dist\WhisperTray\          ← 整个文件夹一起分发（one-folder）
-dist\WhisperTray\WhisperTray.exe
-```
-
-也可手动：
-
-```bat
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt pyinstaller
-pyinstaller whisper_tray.spec
+dist/WhisperTray.app     ← 可拖到「应用程序」
 ```
 
 说明：
 
-- **one-folder**（默认）：启动更快，适合 `faster-whisper` / `ctranslate2` / `onnxruntime` 等大量原生 DLL  
-- 模型权重**不**打进 exe；首次运行仍可能下载  
-- 请在 Windows 上打包（Linux 交叉编译 Windows exe 一般不可行）  
-- `whisper_tray.spec` 已用 `collect_all` 收集常见依赖；`console=False`（托盘无黑窗），调试时可临时改 `True`
+- **未签名 / 未公证**：首次打开若被拦截 → 右键图标 → **打开** → 仍要打开；或到「系统设置 → 隐私与安全性」允许
+- 麦克风：首次录音时授权，并在「隐私与安全性 → 麦克风」中确认 **WhisperTray** 已勾选
+- 模型权重**不**打进包内
+- Apple Silicon 与 Intel 请在**对应架构**的 Mac 上各自打包（或使用 GitHub Actions `macos-14` 产物，目前为 arm64）
 
-### CI 自动构建（GitHub Actions）
+### CI（GitHub Actions）
 
-工作流：`.github/workflows/build-windows.yml`
-
-| 触发 | 行为 |
-|------|------|
-| `workflow_dispatch`（手动） | 在 `windows-latest` 上构建，上传 artifact `WhisperTray-windows` |
-| 推送标签 `v*`（如 `v0.1.0`） | 同上，并创建 GitHub Release，附加 `WhisperTray-windows.zip` |
+| 工作流 | 触发 | 产物 |
+|--------|------|------|
+| `build-windows.yml` | `workflow_dispatch` / tag `v*` | artifact `WhisperTray-windows`；Release 附 `WhisperTray-windows.zip` |
+| `build-macos.yml` | 同上 | artifact `WhisperTray-macos`（`.app`）；Release 附 `WhisperTray-macos.zip`（**未签名**） |
 
 发布示例：
 
-```bat
-git tag v0.1.0
-git push origin v0.1.0
+```bash
+git tag v0.1.1
+git push origin v0.1.1
 ```
-
-（需已配置仓库权限；本仓库本地改动后请自行 push / 打 tag，助手不会代为推送。）
 
 ## 故障排除
 
 | 现象 | 处理 |
 |------|------|
-| 无法打开麦克风 | 系统设置 → 隐私 → 麦克风，允许桌面应用访问；检查默认录音设备 |
-| 托盘图标不显示 | 确认已安装 `pystray`、`Pillow`；部分环境需托盘溢出区显示 |
-| 识别极慢 | 换 `tiny`/`base`，或安装 CUDA 版驱动；关闭其它占 CPU 程序 |
+| 无法打开麦克风（macOS） | 系统设置 → 隐私与安全性 → 麦克风，允许终端 / 编辑器 / WhisperTray；重启应用 |
+| 无法打开麦克风（Windows） | 设置 → 隐私 → 麦克风，允许桌面应用；检查默认录音设备 |
+| `sounddevice` / PortAudio 报错（macOS） | `brew install portaudio`，然后 `pip install --force-reinstall sounddevice` |
+| 托盘图标不显示（macOS） | 看菜单栏右上角；确认 `pystray`、`Pillow` 已装；部分刘海屏机型图标在「控制中心」一侧 |
+| 托盘图标一团黑（旧版） | 0.1.1+ 在 macOS 使用形状区分状态；请更新后重试 |
+| 识别极慢 | 换 `tiny`/`base`；关闭其它占 CPU 程序；Windows 可考虑 CUDA |
 | 模型下载失败 | 检查网络；可配置 Hugging Face 镜像；清理不完整缓存后重试 |
-| 剪贴板无内容 | 确认已装 `pyperclip`；或看日志是否「识别结果为空」 |
-| `DLL load failed` | 安装最新 [VC++ Redistributable](https://learn.microsoft.com/zh-cn/cpp/windows/latest-supported-vc-redist) |
+| 剪贴板无内容 | 确认已装 `pyperclip`；macOS 应有 `pbcopy`；查看日志 |
+| `DLL load failed`（Windows） | 安装 [VC++ Redistributable](https://learn.microsoft.com/zh-cn/cpp/windows/latest-supported-vc-redist) |
 | 空录音 / 无语音 | 靠近麦克风、提高音量；确认未静音 |
+| `.app` 无法打开（macOS） | 右键 → 打开；或在「隐私与安全性」中仍允许；本仓库 CI 产物未做 Apple 公证 |
 
-日志路径：`%LOCALAPPDATA%\WhisperTray\logs\`
+日志路径见上方「数据与配置目录」下的 `logs/`。
 
 ## 项目结构
 
 ```
 whisper-tray-app/
-  main.py              # 入口
-  tray_app.py          # 托盘 UI 与主流程
-  recorder.py          # 麦克风录音 → WAV
-  transcriber.py       # faster-whisper 转写
-  clipboard_util.py    # 剪贴板
-  config.py            # 配置与数据目录
+  main.py                 # 入口
+  tray_app.py             # 托盘 / 菜单栏 UI 与主流程
+  recorder.py             # 麦克风录音 → WAV
+  transcriber.py          # faster-whisper 转写
+  clipboard_util.py       # 剪贴板（含 pbcopy）
+  config.py               # 配置与数据目录
   requirements.txt
-  run.bat              # Windows 一键启动（需 Python）
-  build_windows.bat    # Windows 打包为 exe
-  whisper_tray.spec    # PyInstaller one-folder 规格
-  VERSION              # 当前版本号
-  LICENSE              # MIT
+  run.bat                 # Windows 一键启动
+  run.sh                  # macOS / Linux 一键启动
+  build_windows.bat       # Windows 打包 exe
+  build_macos.sh          # macOS 本机打包 .app
+  whisper_tray.spec       # PyInstaller Windows
+  whisper_tray_macos.spec # PyInstaller macOS .app
+  VERSION
+  LICENSE                 # MIT
   .github/workflows/build-windows.yml
+  .github/workflows/build-macos.yml
   README.md
 ```
 

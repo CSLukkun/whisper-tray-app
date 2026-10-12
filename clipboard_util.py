@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import platform
 import subprocess
 
@@ -49,13 +50,18 @@ def copy_to_clipboard(text: str) -> bool:
                 logger.info("已复制到剪贴板（clip）")
                 return True
         elif system == "Darwin":
+            env = os.environ.copy()
+            env.setdefault("LANG", "en_US.UTF-8")
+            env.setdefault("LC_ALL", "en_US.UTF-8")
             proc = subprocess.run(
                 ["pbcopy"],
                 input=text.encode("utf-8"),
                 check=False,
                 capture_output=True,
+                env=env,
             )
             if proc.returncode == 0:
+                logger.info("已复制到剪贴板（pbcopy），长度=%d", len(text))
                 return True
         else:
             # Linux: xclip / xsel / wl-copy

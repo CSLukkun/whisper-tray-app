@@ -4,6 +4,14 @@
 
 在 Windows 系统托盘常驻：点击开始/停止录音，本地 Whisper 转写后自动复制到剪贴板。适合日常「说一句 → 粘贴」场景。
 
+## 演示
+
+![WhisperTray 使用演示](docs/demo.gif)
+
+<video src="docs/demo.mp4" controls width="720" poster="docs/demo-poster.png"></video>
+
+[观看 MP4 演示视频](docs/demo.mp4)
+
 ## 功能
 
 - 系统托盘图标：左键切换录音；右键菜单完整操作

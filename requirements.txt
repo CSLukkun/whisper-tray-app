@@ -1,0 +1,15 @@
+# WhisperTray — Windows 桌面托盘语音识别
+# Python 3.11+ 推荐
+
+faster-whisper>=1.0.0
+sounddevice>=0.4.6
+numpy>=1.24.0
+Pillow>=10.0.0
+pystray>=0.19.5
+pyperclip>=1.8.2
+
+# 可选：桌面通知
+plyer>=2.1.0
+
+# 打包（可选，仅在制作 exe 时需要）
+# pyinstaller>=6.0.0

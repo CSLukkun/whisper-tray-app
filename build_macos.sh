@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# WhisperTray — 在 macOS 本机打包 .app / 目录版（无法在 Linux 上交叉编译）
+# WhisperTray — 在 macOS 本机打包 .app 与 .dmg（无法在 Linux 上交叉编译）
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -33,11 +33,24 @@ echo "执行 PyInstaller (whisper_tray_macos.spec) ..."
 pyinstaller whisper_tray_macos.spec
 
 echo
-echo "完成。输出目录:"
-echo "  dist/WhisperTray.app          ← 可拖到「应用程序」（未签名）"
-echo "  或 dist/WhisperTray/          ← one-folder 备用"
+echo "打包 .dmg ..."
+./package_macos_dmg.sh dist/WhisperTray.app
+
+VERSION="$(tr -d '[:space:]' < VERSION)"
+ARCH="$(uname -m)"
+case "${ARCH}" in
+  arm64|aarch64) ARCH_TAG="arm64" ;;
+  x86_64|amd64)  ARCH_TAG="x86_64" ;;
+  *)             ARCH_TAG="${ARCH}" ;;
+esac
+
+echo
+echo "完成。输出:"
+echo "  dist/WhisperTray.app"
+echo "  dist/WhisperTray-${VERSION}-macos-${ARCH_TAG}.dmg"
 echo
 echo "限制:"
 echo "  - 未做 Apple Developer 签名/公证；首次打开可能需「右键 → 打开」"
 echo "  - 麦克风权限需在「系统设置 → 隐私与安全性 → 麦克风」中授予 WhisperTray"
 echo "  - 模型权重不打进包内，首次运行仍会下载到 Hugging Face 缓存"
+echo "  - .dmg 仅可在 macOS 上用 hdiutil 生成（本脚本与 GitHub Actions macos runner）"

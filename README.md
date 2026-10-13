@@ -1,6 +1,6 @@
 # WhisperTray — 本地语音识别托盘工具
 
-**版本：0.1.1**（见 `VERSION`）
+**版本：0.1.2**（见 `VERSION`）
 
 在系统托盘 / 菜单栏常驻：点击开始/停止录音，本地 Whisper 转写后自动复制到剪贴板。适合日常「说一句 → 粘贴」场景。
 
@@ -162,7 +162,7 @@ last_transcript.txt  # 最近一次转写结果
 
 1. **系统设置 → 通用 → 登录项** →「打开时打开」→ 添加  
    - 源码方式：可添加一个「自动化」或使用登录时运行脚本；简便做法是把 `run.sh` 包进「应用程序」里的 Automator / 快捷指令，或直接添加打包好的 `WhisperTray.app`  
-2. 推荐：在 Mac 上执行 `./build_macos.sh` 得到 `WhisperTray.app` 后，将该 `.app` 加入登录项
+2. 推荐：安装 `WhisperTray.app`（从 `.dmg` 或 `./build_macos.sh`）后，将该 `.app` 加入登录项
 
 ## 免 Python 的可执行包
 
@@ -175,41 +175,66 @@ last_transcript.txt  # 最近一次转写结果
 
 本机打包：双击或运行 `build_windows.bat`（须在 **Windows** 上）。
 
-### macOS：本机打包 `.app`
+### macOS：下载 `.dmg` 或本机打包
 
-**无法在 Linux 上交叉编译出可用的 macOS .app**（需 Cocoa / 本机链接）。请在 Mac 上：
+#### 方式一：从 Releases 下载（推荐）
+
+1. 打开仓库 [Releases](https://github.com/CSLukkun/whisper-tray-app/releases)
+2. 下载 `WhisperTray-<version>-macos-arm64.dmg`（当前 CI 为 **Apple Silicon / arm64**，由 `macos-14` runner 构建）
+3. 双击打开 `.dmg`，将 **WhisperTray.app** 拖到 **Applications**
+4. 首次启动（**未签名 / 未公证**，Gatekeeper 会拦截）：
+   - 在「应用程序」中 **右键** WhisperTray → **打开** → 仍要打开  
+   - 或：系统设置 → 隐私与安全性 → 仍允许打开
+5. 麦克风：系统设置 → 隐私与安全性 → 麦克风 → 勾选 **WhisperTray**；改权限后需完全退出再开
+6. 首次运行仍会下载 Whisper 模型（不在包内）
+
+也可用同 Release 里的 `WhisperTray-macos.zip`（解压得 `.app`），效果与 `.dmg` 相同。
+
+#### 方式二：本机打包（需 macOS）
+
+**无法在 Linux 上交叉编译出可用的 macOS `.app` / `.dmg`**（需 Cocoa 链接与 `hdiutil`）。请在 Mac 上：
 
 ```bash
 cd /path/to/whisper-tray-app
-chmod +x build_macos.sh
+chmod +x build_macos.sh package_macos_dmg.sh
 ./build_macos.sh
 ```
 
-输出：
+`build_macos.sh` 会：PyInstaller → `WhisperTray.app` → 调用 `package_macos_dmg.sh`（内置 `hdiutil`，含 Applications 符号链接）→ 产出 `.dmg`。
+
+输出示例：
 
 ```
-dist/WhisperTray.app     ← 可拖到「应用程序」
+dist/WhisperTray.app
+dist/WhisperTray-0.1.2-macos-arm64.dmg   # 架构随本机：arm64 或 x86_64
+```
+
+若已有 `.app`，可单独执行：
+
+```bash
+./package_macos_dmg.sh dist/WhisperTray.app
 ```
 
 说明：
 
-- **未签名 / 未公证**：首次打开若被拦截 → 右键图标 → **打开** → 仍要打开；或到「系统设置 → 隐私与安全性」允许
-- 麦克风：首次录音时授权，并在「隐私与安全性 → 麦克风」中确认 **WhisperTray** 已勾选
+- **未签名 / 未公证**：首次打开 → 右键 → **打开**；或到「隐私与安全性」允许
+- 麦克风：确认 **WhisperTray** 已勾选
 - 模型权重**不**打进包内
-- Apple Silicon 与 Intel 请在**对应架构**的 Mac 上各自打包（或使用 GitHub Actions `macos-14` 产物，目前为 arm64）
+- Apple Silicon 与 Intel 请在**对应架构**上各自打包；GitHub Actions 当前仅产出 **arm64** `.dmg`
+- Linux 开发机只能改脚本/CI，无法本地验证真实 `.dmg`
 
 ### CI（GitHub Actions）
 
 | 工作流 | 触发 | 产物 |
 |--------|------|------|
 | `build-windows.yml` | `workflow_dispatch` / tag `v*` | artifact `WhisperTray-windows`；Release 附 `WhisperTray-windows.zip` |
-| `build-macos.yml` | 同上 | artifact `WhisperTray-macos`（`.app`）；Release 附 `WhisperTray-macos.zip`（**未签名**） |
+| `build-macos.yml` | 同上 | artifact：`.app` + `.dmg`；Release 附 `WhisperTray-macos.zip` 与 `WhisperTray-<ver>-macos-arm64.dmg`（**未签名**） |
 
 发布示例：
 
 ```bash
-git tag v0.1.1
-git push origin v0.1.1
+git tag v0.1.2
+git push origin v0.1.2
 ```
 
 ## 故障排除
@@ -226,7 +251,7 @@ git push origin v0.1.1
 | 剪贴板无内容 | 确认已装 `pyperclip`；macOS 应有 `pbcopy`；查看日志 |
 | `DLL load failed`（Windows） | 安装 [VC++ Redistributable](https://learn.microsoft.com/zh-cn/cpp/windows/latest-supported-vc-redist) |
 | 空录音 / 无语音 | 靠近麦克风、提高音量；确认未静音 |
-| `.app` 无法打开（macOS） | 右键 → 打开；或在「隐私与安全性」中仍允许；本仓库 CI 产物未做 Apple 公证 |
+| `.app` / `.dmg` 无法打开（macOS） | 右键 → 打开；或在「隐私与安全性」中仍允许；本仓库 CI 产物未做 Apple 公证 / 签名 |
 
 日志路径见上方「数据与配置目录」下的 `logs/`。
 
@@ -244,7 +269,8 @@ whisper-tray-app/
   run.bat                 # Windows 一键启动
   run.sh                  # macOS / Linux 一键启动
   build_windows.bat       # Windows 打包 exe
-  build_macos.sh          # macOS 本机打包 .app
+  build_macos.sh          # macOS 本机打包 .app + .dmg
+  package_macos_dmg.sh    # 将 .app 打成 .dmg（hdiutil）
   whisper_tray.spec       # PyInstaller Windows
   whisper_tray_macos.spec # PyInstaller macOS .app
   VERSION
